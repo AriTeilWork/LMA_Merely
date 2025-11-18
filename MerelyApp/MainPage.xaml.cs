@@ -1,16 +1,56 @@
 ﻿using Microsoft.Maui.Controls;
+using Microsoft.Maui.Storage;
 using Markdig;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using System.Linq;
+using MerelyApp.Data;
+
+#if WINDOWS
+using WinRT.Interop;
+using Windows.Storage.Pickers;
+using Microsoft.UI.Xaml;
+#endif
 
 namespace MerelyApp;
 
 public partial class MainPage : ContentPage
 {
+    private string? _currentFilePath;
+    private NotesDatabase _db;
+
     public MainPage()
     {
         InitializeComponent();
         MarkdownEditor.Text = "# Hello Markdown 👋\nType **Markdown** here!";
 
         MarkdownPreview.Navigating += OnWebViewNavigating;
+
+        _db = new NotesDatabase(NotesDatabase.GetDefaultDbPath());
+    }
+
+    // New constructor to open a specific note file
+    public MainPage(string filePath) : this()
+    {
+        _currentFilePath = filePath;
+
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                MarkdownEditor.Text = File.ReadAllText(filePath);
+            }
+            else
+            {
+                // create empty file if it doesn't exist
+                File.WriteAllText(filePath, MarkdownEditor.Text ?? string.Empty);
+            }
+        }
+        catch
+        {
+            // ignore load errors
+        }
     }
 
     private void OnMarkdownTextChanged(object sender, TextChangedEventArgs e)
@@ -36,11 +76,215 @@ public partial class MainPage : ContentPage
     private async void OnSaveClicked(object sender, EventArgs e)
     {
         string markdown = MarkdownEditor.Text ?? string.Empty;
-        string path = Path.Combine(FileSystem.AppDataDirectory, "note.md");
-        await File.WriteAllTextAsync(path, markdown);
-        await DisplayAlert("Saved", $"Markdown saved to:\n{path}", "OK");
+        string path = _currentFilePath ?? Path.Combine(FileSystem.AppDataDirectory, "note.md");
+        try
+        {
+            await File.WriteAllTextAsync(path, markdown);
+
+            // Save or update database record
+            try
+            {
+                var existing = (await _db.GetNotesAsync()).FirstOrDefault(n => n.FilePath == path);
+                if (existing != null)
+                {
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    await _db.SaveNoteAsync(existing);
+                }
+                else
+                {
+                    var note = new Note { Title = Path.GetFileNameWithoutExtension(path), FilePath = path, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
+                    await _db.SaveNoteAsync(note);
+                }
+            }
+            catch { }
+
+            await DisplayAlert("Saved", $"Markdown saved to:\n{path}", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", ex.Message, "OK");
+        }
     }
 
+    private async void OnFileClicked(object sender, EventArgs e)
+    {
+        string action = await DisplayActionSheet("File", "Cancel", null, "Rename", "Save As", "Open As");
+        if (action == "Rename")
+        {
+            await RenameCurrentFile();
+        }
+        else if (action == "Save As")
+        {
+            await SaveAs();
+        }
+        else if (action == "Open As")
+        {
+            await OpenAs();
+        }
+    }
+
+    private async Task RenameCurrentFile()
+    {
+        if (string.IsNullOrEmpty(_currentFilePath) || !File.Exists(_currentFilePath))
+        {
+            await DisplayAlert("Rename", "No current file to rename.", "OK");
+            return;
+        }
+
+        string currentName = Path.GetFileName(_currentFilePath);
+        string newName = await DisplayPromptAsync("Rename", "New file name:", initialValue: currentName);
+        if (string.IsNullOrWhiteSpace(newName)) return;
+
+        string newPath = Path.Combine(Path.GetDirectoryName(_currentFilePath) ?? FileSystem.AppDataDirectory, newName);
+        try
+        {
+            File.Move(_currentFilePath, newPath);
+            _currentFilePath = newPath;
+
+            // Update DB entry file path
+            try
+            {
+                var existing = (await _db.GetNotesAsync()).FirstOrDefault(n => n.FilePath == _currentFilePath);
+                if (existing != null)
+                {
+                    existing.FilePath = newPath;
+                    await _db.SaveNoteAsync(existing);
+                }
+            }
+            catch { }
+
+            await DisplayAlert("Renamed", $"File renamed to:\n{newPath}", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", ex.Message, "OK");
+        }
+    }
+
+    private async Task SaveAs()
+    {
+        string defaultName = _currentFilePath != null ? Path.GetFileName(_currentFilePath) : "note.md";
+        string newName = await DisplayPromptAsync("Save As", "File name:", initialValue: defaultName);
+        if (string.IsNullOrWhiteSpace(newName)) return;
+
+        // Ask where to save
+        string locationChoice = await DisplayActionSheet("Save location", "Cancel", null, "App Storage", "Choose folder");
+        if (locationChoice == "Cancel") return;
+
+        string targetDir = FileSystem.AppDataDirectory;
+
+        if (locationChoice == "Choose folder")
+        {
+#if WINDOWS
+            var picked = await PickFolderWindowsAsync();
+            if (!string.IsNullOrEmpty(picked))
+            {
+                targetDir = picked;
+            }
+            else
+            {
+                // user cancelled folder pick
+                await DisplayAlert("Cancelled", "No folder selected. Saving to app storage instead.", "OK");
+            }
+#else
+            await DisplayAlert("Not supported", "Choosing arbitrary folders is only supported on Windows in this build. File will be saved to app storage.", "OK");
+#endif
+        }
+
+        string newPath = Path.Combine(targetDir, newName);
+        try
+        {
+            await File.WriteAllTextAsync(newPath, MarkdownEditor.Text ?? string.Empty);
+            _currentFilePath = newPath;
+
+            // Create DB entry
+            try
+            {
+                var note = new Note { Title = Path.GetFileNameWithoutExtension(newPath), FilePath = newPath, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
+                await _db.SaveNoteAsync(note);
+            }
+            catch { }
+
+            await DisplayAlert("Saved", $"File saved to:\n{newPath}", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", ex.Message, "OK");
+        }
+    }
+
+#if WINDOWS
+    private async Task<string?> PickFolderWindowsAsync()
+    {
+        try
+        {
+            var picker = new FolderPicker();
+
+            // Need to initialize with the current window handle
+            var mauiWindow = Microsoft.Maui.Controls.Application.Current?.Windows?.FirstOrDefault()?.Handler.PlatformView as Microsoft.UI.Xaml.Window;
+            if (mauiWindow != null)
+            {
+                var hwnd = WindowNative.GetWindowHandle(mauiWindow);
+                InitializeWithWindow.Initialize(picker, hwnd);
+
+                picker.SuggestedStartLocation = PickerLocationId.Desktop;
+                picker.FileTypeFilter.Add("*");
+
+                var folder = await picker.PickSingleFolderAsync();
+                if (folder != null)
+                {
+                    return folder.Path;
+                }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return null;
+    }
+#endif
+
+    private async Task OpenAs()
+    {
+        try
+        {
+            var result = await FilePicker.PickAsync(new PickOptions
+            {
+                PickerTitle = "Pick a markdown file"
+            });
+
+            if (result == null) return;
+
+            // Copy to AppDataDirectory and open
+            string dest = Path.Combine(FileSystem.AppDataDirectory, result.FileName);
+            using (var stream = await result.OpenReadAsync())
+            using (var outStream = File.Create(dest))
+            {
+                await stream.CopyToAsync(outStream);
+            }
+
+            _currentFilePath = dest;
+            MarkdownEditor.Text = await File.ReadAllTextAsync(dest);
+
+            // Create DB entry if missing
+            try
+            {
+                var existing = (await _db.GetNotesAsync()).FirstOrDefault(n => n.FilePath == dest);
+                if (existing == null)
+                {
+                    var note = new Note { Title = Path.GetFileNameWithoutExtension(dest), FilePath = dest, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
+                    await _db.SaveNoteAsync(note);
+                }
+            }
+            catch { }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", ex.Message, "OK");
+        }
+    }
 
 
     private async void OnWebViewNavigating(object sender, WebNavigatingEventArgs e)
@@ -55,6 +299,9 @@ public partial class MainPage : ContentPage
         }
     }
 
-
+    private async void OnOpenNotesClicked(object sender, EventArgs e)
+    {
+        await Navigation.PushAsync(new NotesBoardPage());
+    }
 
 }

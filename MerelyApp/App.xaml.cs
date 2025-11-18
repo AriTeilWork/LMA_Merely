@@ -11,6 +11,7 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new Window(new MainPage());
+        // Use a NavigationPage so we can navigate between pages (e.g., NotesBoardPage)
+        return new Window(new NavigationPage(new MainPage()));
     }
 }
