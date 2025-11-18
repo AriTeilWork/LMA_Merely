@@ -1,4 +1,5 @@
-﻿<ContentPage
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
     x:Class="MerelyApp.MainPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
@@ -6,16 +7,25 @@
 
     <Grid RowDefinitions="Auto, *, Auto" Padding="20">
 
-        <HorizontalStackLayout Grid.Row="0" HorizontalOptions="Start" VerticalOptions="Center">
-            <CheckBox
-                x:Name="PreviewCheckBox"
-                CheckedChanged="OnPreviewCheckChanged"
-                VerticalOptions="Center" />
-            <Label
-                Text="Preview mode"
-                VerticalOptions="Center"
-                Margin="8,0,0,0" />
-        </HorizontalStackLayout>
+        <!-- Top bar: File button, checkbox+label, spacer, Notes button -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*,Auto" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
+            <Button Grid.Column="0" Text="File" Clicked="OnFileClicked" VerticalOptions="Center" />
+
+            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                <CheckBox
+                    x:Name="PreviewCheckBox"
+                    CheckedChanged="OnPreviewCheckChanged"
+                    VerticalOptions="Center" />
+                <Label
+                    Text="Preview mode"
+                    VerticalOptions="Center"
+                    Margin="0,0,0,0" />
+            </HorizontalStackLayout>
+
+            <!-- Spacer column is grid column 2 -->
+
+            <Button Grid.Column="3" Text="Notes" Clicked="OnOpenNotesClicked" VerticalOptions="Center" />
+        </Grid>
 
         <Editor
             x:Name="MarkdownEditor"
