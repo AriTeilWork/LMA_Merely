@@ -32,6 +32,9 @@
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
+		
+		<!-- Windows Application Icon -->
+		<ApplicationIcon Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">Resources\AppIcon\Merely.ico</ApplicationIcon>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
@@ -42,8 +45,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- App Icon -->
+		<!-- App Icon - Use SVG for all platforms (ICO format not directly supported by MauiIcon) -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+		
+		<!-- Windows ICO Icon Resource -->
+		<Content Include="Resources\AppIcon\Merely.ico" Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
+			<Link>Merely.ico</Link>
+		</Content>
 
 		<!-- Splash Screen -->
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
@@ -60,16 +68,26 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <AndroidResource Remove="Platforms\Android\Resources\drawable\launch_background.xml" />
+	  <AndroidResource Remove="Platforms\Android\Resources\values\styles.xml" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="Markdig" Version="0.42.0" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.5" />
 		<PackageReference Include="Microsoft.Maui.Graphics.Text.Markdig" Version="9.0.110" />
+		<PackageReference Include="OpenMeteo" Version="1.0.0" />
 		<PackageReference Include="Syncfusion.Maui.RichTextEditor" Version="31.1.22" />
 		<PackageReference Include="sqlite-net-pcl" Version="1.8.116" />
+		<PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.0.7" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <MauiXaml Update="NotesBoardPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="WeatherPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	</ItemGroup>

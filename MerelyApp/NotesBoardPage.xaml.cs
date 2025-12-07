@@ -10,16 +10,26 @@ namespace MerelyApp;
 public partial class NotesBoardPage : ContentPage
 {
     private ObservableCollection<Note> _notes = new ObservableCollection<Note>();
-    private NotesDatabase _db;
+    private NotesDatabase? _db;
+
+    private NotesDatabase GetDatabase()
+    {
+        if (_db == null)
+        {
+            _db = new NotesDatabase(NotesDatabase.GetDefaultDbPath());
+        }
+        return _db;
+    }
 
     public NotesBoardPage()
     {
         InitializeComponent();
         NotesList.ItemsSource = _notes;
+    }
 
-        var dbPath = NotesDatabase.GetDefaultDbPath();
-        _db = new NotesDatabase(dbPath);
-
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
         LoadNotesFromDb();
     }
 
@@ -27,7 +37,7 @@ public partial class NotesBoardPage : ContentPage
     {
         try
         {
-            var notes = await _db.GetNotesAsync();
+            var notes = await GetDatabase().GetNotesAsync();
             _notes.Clear();
             foreach (var n in notes)
             {
@@ -40,7 +50,7 @@ public partial class NotesBoardPage : ContentPage
                 var file = Path.Combine(FileSystem.AppDataDirectory, $"note_{Guid.NewGuid()}.md");
                 await File.WriteAllTextAsync(file, "# Welcome\nCreate notes using the New Note button.");
                 var note = new Note { Title = "Welcome", FilePath = file, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-                await _db.SaveNoteAsync(note);
+                await GetDatabase().SaveNoteAsync(note);
                 _notes.Add(note);
             }
         }
@@ -67,7 +77,7 @@ public partial class NotesBoardPage : ContentPage
         await File.WriteAllTextAsync(file, "# New note\nWrite content here...");
 
         var note = new Note { Title = Path.GetFileNameWithoutExtension(file), FilePath = file, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-        await _db.SaveNoteAsync(note);
+        await GetDatabase().SaveNoteAsync(note);
         _notes.Insert(0, note);
 
         // Open the new note in the Markdown editor
@@ -103,7 +113,7 @@ public partial class NotesBoardPage : ContentPage
                 note.FilePath = newPath;
                 note.Title = Path.GetFileNameWithoutExtension(newPath);
                 note.UpdatedAt = DateTime.UtcNow;
-                await _db.SaveNoteAsync(note);
+                await GetDatabase().SaveNoteAsync(note);
 
                 // refresh UI
                 var idx = _notes.IndexOf(note);
@@ -129,7 +139,7 @@ public partial class NotesBoardPage : ContentPage
             try
             {
                 if (File.Exists(note.FilePath)) File.Delete(note.FilePath);
-                await _db.DeleteNoteAsync(note);
+                await GetDatabase().DeleteNoteAsync(note);
                 _notes.Remove(note);
             }
             catch (Exception ex)
