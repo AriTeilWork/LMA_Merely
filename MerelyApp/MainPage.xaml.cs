@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using System.Linq;
 using MerelyApp.Data;
 
+using Microsoft.Maui.ApplicationModel;
+
 #if WINDOWS
 using WinRT.Interop;
 using Windows.Storage.Pickers;
@@ -18,7 +20,16 @@ namespace MerelyApp;
 public partial class MainPage : ContentPage
 {
     private string? _currentFilePath;
-    private NotesDatabase _db;
+    private NotesDatabase? _db;
+
+    private NotesDatabase GetDatabase()
+    {
+        if (_db == null)
+        {
+            _db = new NotesDatabase(NotesDatabase.GetDefaultDbPath());
+        }
+        return _db;
+    }
 
     public MainPage()
     {
@@ -26,8 +37,6 @@ public partial class MainPage : ContentPage
         MarkdownEditor.Text = "# Hello Markdown 👋\nType **Markdown** here!";
 
         MarkdownPreview.Navigating += OnWebViewNavigating;
-
-        _db = new NotesDatabase(NotesDatabase.GetDefaultDbPath());
     }
 
     // New constructor to open a specific note file
@@ -84,16 +93,16 @@ public partial class MainPage : ContentPage
             // Save or update database record
             try
             {
-                var existing = (await _db.GetNotesAsync()).FirstOrDefault(n => n.FilePath == path);
+                var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == path);
                 if (existing != null)
                 {
                     existing.UpdatedAt = DateTime.UtcNow;
-                    await _db.SaveNoteAsync(existing);
+                    await GetDatabase().SaveNoteAsync(existing);
                 }
                 else
                 {
                     var note = new Note { Title = Path.GetFileNameWithoutExtension(path), FilePath = path, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-                    await _db.SaveNoteAsync(note);
+                    await GetDatabase().SaveNoteAsync(note);
                 }
             }
             catch { }
@@ -136,19 +145,22 @@ public partial class MainPage : ContentPage
         if (string.IsNullOrWhiteSpace(newName)) return;
 
         string newPath = Path.Combine(Path.GetDirectoryName(_currentFilePath) ?? FileSystem.AppDataDirectory, newName);
+        string oldPath = _currentFilePath;
         try
         {
-            File.Move(_currentFilePath, newPath);
+            File.Move(oldPath, newPath);
             _currentFilePath = newPath;
 
-            // Update DB entry file path
+            // Update DB entry file path: find by old path
             try
             {
-                var existing = (await _db.GetNotesAsync()).FirstOrDefault(n => n.FilePath == _currentFilePath);
+                var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == oldPath);
                 if (existing != null)
                 {
                     existing.FilePath = newPath;
-                    await _db.SaveNoteAsync(existing);
+                    existing.Title = Path.GetFileNameWithoutExtension(newPath);
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    await GetDatabase().SaveNoteAsync(existing);
                 }
             }
             catch { }
@@ -201,7 +213,7 @@ public partial class MainPage : ContentPage
             try
             {
                 var note = new Note { Title = Path.GetFileNameWithoutExtension(newPath), FilePath = newPath, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-                await _db.SaveNoteAsync(note);
+                await GetDatabase().SaveNoteAsync(note);
             }
             catch { }
 
@@ -218,24 +230,40 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            var picker = new FolderPicker();
-
-            // Need to initialize with the current window handle
-            var mauiWindow = Microsoft.Maui.Controls.Application.Current?.Windows?.FirstOrDefault()?.Handler.PlatformView as Microsoft.UI.Xaml.Window;
-            if (mauiWindow != null)
+            // Ensure we run picker code on the UI thread to avoid WinRT runtime exceptions
+            string? result = null;
+            await Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(async () =>
             {
-                var hwnd = WindowNative.GetWindowHandle(mauiWindow);
-                InitializeWithWindow.Initialize(picker, hwnd);
-
-                picker.SuggestedStartLocation = PickerLocationId.Desktop;
-                picker.FileTypeFilter.Add("*");
-
-                var folder = await picker.PickSingleFolderAsync();
-                if (folder != null)
+                try
                 {
-                    return folder.Path;
+                    var picker = new FolderPicker();
+
+                    // Need to initialize with the current window handle
+                    var mauiWindow = Microsoft.Maui.Controls.Application.Current?.Windows?.FirstOrDefault()?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
+                    if (mauiWindow == null)
+                    {
+                        return;
+                    }
+
+                    var hwnd = WindowNative.GetWindowHandle(mauiWindow);
+                    InitializeWithWindow.Initialize(picker, hwnd);
+
+                    picker.SuggestedStartLocation = PickerLocationId.Desktop;
+                    picker.FileTypeFilter.Add("*");
+
+                    var folder = await picker.PickSingleFolderAsync();
+                    if (folder != null)
+                    {
+                        result = folder.Path;
+                    }
                 }
-            }
+                catch
+                {
+                    // ignore platform picker errors
+                }
+            });
+
+            return result;
         }
         catch
         {
@@ -271,11 +299,11 @@ public partial class MainPage : ContentPage
             // Create DB entry if missing
             try
             {
-                var existing = (await _db.GetNotesAsync()).FirstOrDefault(n => n.FilePath == dest);
+                var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == dest);
                 if (existing == null)
                 {
                     var note = new Note { Title = Path.GetFileNameWithoutExtension(dest), FilePath = dest, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-                    await _db.SaveNoteAsync(note);
+                    await GetDatabase().SaveNoteAsync(note);
                 }
             }
             catch { }
@@ -287,7 +315,7 @@ public partial class MainPage : ContentPage
     }
 
 
-    private async void OnWebViewNavigating(object sender, WebNavigatingEventArgs e)
+    private async void OnWebViewNavigating(object? sender, WebNavigatingEventArgs e)
     {
         if (Uri.TryCreate(e.Url, UriKind.Absolute, out Uri uri))
         {
@@ -302,6 +330,11 @@ public partial class MainPage : ContentPage
     private async void OnOpenNotesClicked(object sender, EventArgs e)
     {
         await Navigation.PushAsync(new NotesBoardPage());
+    }
+
+    private async void OnOpenWeatherClicked(object sender, EventArgs e)
+    {
+        await Navigation.PushAsync(new WeatherPage());
     }
 
 }

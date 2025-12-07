@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using SQLite;
 
@@ -9,35 +10,61 @@ namespace MerelyApp.Data;
 public class NotesDatabase
 {
     private readonly SQLiteAsyncConnection _database;
+    private readonly string _dbPath;
+    private static readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+    private bool _initialized = false;
 
     public NotesDatabase(string dbPath)
     {
+        _dbPath = dbPath;
         _database = new SQLiteAsyncConnection(dbPath);
-        _database.CreateTableAsync<Note>().Wait();
     }
 
-    public Task<List<Note>> GetNotesAsync()
+    private async Task EnsureInitializedAsync()
     {
-        return _database.Table<Note>().OrderByDescending(n => n.UpdatedAt).ToListAsync();
+        if (_initialized) return;
+        
+        await _initLock.WaitAsync();
+        try
+        {
+            if (!_initialized)
+            {
+                await _database.CreateTableAsync<Note>();
+                _initialized = true;
+            }
+        }
+        finally
+        {
+            _initLock.Release();
+        }
     }
 
-    public Task<Note> GetNoteAsync(int id)
+    public async Task<List<Note>> GetNotesAsync()
     {
-        return _database.Table<Note>().Where(n => n.Id == id).FirstOrDefaultAsync();
+        await EnsureInitializedAsync();
+        return await _database.Table<Note>().OrderByDescending(n => n.UpdatedAt).ToListAsync();
     }
 
-    public Task<int> SaveNoteAsync(Note note)
+    public async Task<Note> GetNoteAsync(int id)
     {
+        await EnsureInitializedAsync();
+        return await _database.Table<Note>().Where(n => n.Id == id).FirstOrDefaultAsync();
+    }
+
+    public async Task<int> SaveNoteAsync(Note note)
+    {
+        await EnsureInitializedAsync();
         note.UpdatedAt = DateTime.UtcNow;
         if (note.Id != 0)
-            return _database.UpdateAsync(note);
+            return await _database.UpdateAsync(note);
         else
-            return _database.InsertAsync(note);
+            return await _database.InsertAsync(note);
     }
 
-    public Task<int> DeleteNoteAsync(Note note)
+    public async Task<int> DeleteNoteAsync(Note note)
     {
-        return _database.DeleteAsync(note);
+        await EnsureInitializedAsync();
+        return await _database.DeleteAsync(note);
     }
 
     public static string GetDefaultDbPath()

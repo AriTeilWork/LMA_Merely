@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:MerelyApp.Models"
+             x:Class="MerelyApp.WeatherPage"
+             BackgroundColor="#0B3D91">
+    <ContentPage.Resources>
+        <Style TargetType="Border">
+            <Setter Property="StrokeShape" Value="RoundRectangle 20,20,20,20" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="BackgroundColor" Value="#60FFFFFF" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="20" RowSpacing="16">
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" VerticalOptions="Center" Margin="0,0,0,8">
+            <Label x:Name="LocationLabel" 
+                   Grid.Column="0"
+                   Text="Determining location..." 
+                   FontSize="20" 
+                   FontAttributes="Bold"
+                   VerticalOptions="Center" 
+                   TextColor="White" 
+                   HorizontalOptions="Start" />
+            <ActivityIndicator x:Name="LoadingIndicator" 
+                               Grid.Column="1"
+                               IsVisible="False" 
+                               IsRunning="False" 
+                               WidthRequest="32" 
+                               HeightRequest="32" 
+                               Color="White"
+                               Margin="12,0,0,0"
+                               HorizontalOptions="End" />
+            <Button Grid.Column="2"
+                    Text="🔄" 
+                    FontSize="20"
+                    Clicked="OnRefreshClicked" 
+                    BackgroundColor="#40FFFFFF"
+                    TextColor="White"
+                    CornerRadius="20"
+                    WidthRequest="44"
+                    HeightRequest="44"
+                    Padding="0"
+                    Margin="8,0,0,0"
+                    HorizontalOptions="End" />
+        </Grid>
+
+        <!-- Current weather card -->
+        <Border Grid.Row="1" StrokeShape="RoundRectangle 24,24,24,24" Padding="20" Margin="0,0,0,8" BackgroundColor="#60FFFFFF">
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.3" />
+            </Border.Shadow>
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalOptions="Center" RowSpacing="8">
+                <StackLayout Grid.Column="0" HorizontalOptions="Start" VerticalOptions="Center" Spacing="8" Margin="0,0,16,0">
+                    <Label x:Name="CurrentIconLabel" Text="🌤" FontSize="72" HorizontalOptions="Center" />
+                    <Label x:Name="SummaryLabel" Text="--" FontSize="14" FontAttributes="Bold" HorizontalOptions="Center" TextColor="#333" />
+                </StackLayout>
+
+                <StackLayout Grid.Column="1" Padding="12" VerticalOptions="Center" Spacing="8">
+                    <Label x:Name="TempLabel" Text="--°C" FontSize="48" FontAttributes="Bold" TextColor="#0B3D91" />
+                    <Label x:Name="HumidityLabel" Text="💧 Humidity: --" FontSize="14" TextColor="#666" />
+                </StackLayout>
+
+                <StackLayout Grid.Column="2" HorizontalOptions="End" VerticalOptions="Center" Spacing="8">
+                    <Label x:Name="WindLabel" Text="💨 Wind: --" FontSize="14" TextColor="#666" HorizontalOptions="End" />
+                </StackLayout>
+            </Grid>
+        </Border>
+
+        <!-- 7-day forecast list -->
+        <CollectionView Grid.Row="2" x:Name="ForecastList" ItemsLayout="VerticalList" SelectionMode="None" Margin="0,8">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:ForecastItem">
+                    <Border Margin="0,6" StrokeShape="RoundRectangle 16,16,16,16" Padding="16" BackgroundColor="#70FFFFFF">
+                        <Border.Shadow>
+                            <Shadow Brush="Black" Offset="0,2" Radius="4" Opacity="0.2" />
+                        </Border.Shadow>
+                        <Grid ColumnDefinitions="Auto,*,Auto" VerticalOptions="Center" RowSpacing="4">
+                            <Label Grid.Column="0"
+                                   Text="{Binding DayOfWeek}" 
+                                   VerticalOptions="Center" 
+                                   FontAttributes="Bold" 
+                                   FontSize="16"
+                                   TextColor="#0B3D91"
+                                   WidthRequest="60" />
+                            <StackLayout Grid.Column="1" Spacing="4" Padding="12,0">
+                                <Label Text="{Binding Summary}" 
+                                       FontAttributes="Bold" 
+                                       FontSize="15"
+                                       TextColor="#333" />
+                                <Label Text="{Binding TempRange}" 
+                                       FontSize="13" 
+                                       TextColor="#666" />
+                            </StackLayout>
+                            <Label Grid.Column="2" 
+                                   Text="{Binding IconEmoji}" 
+                                   FontSize="36" 
+                                   VerticalOptions="Center" 
+                                   HorizontalOptions="End" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Footer -->
+        <StackLayout Grid.Row="3" Spacing="4" HorizontalOptions="Center" Margin="0,12,0,0">
+            <Label Text="Data provided by OpenMeteo" TextColor="#AAFFFFFF" FontSize="11" HorizontalOptions="Center" />
+            <Label x:Name="DebugInfoLabel" TextColor="#88FFFFFF" FontSize="9" HorizontalOptions="Center" />
+        </StackLayout>
+    </Grid>
+</ContentPage>

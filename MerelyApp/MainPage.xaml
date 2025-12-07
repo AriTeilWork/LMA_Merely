@@ -5,48 +5,101 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     Title="Markdown Editor">
 
-    <Grid RowDefinitions="Auto, *, Auto" Padding="20">
+    <Grid RowDefinitions="Auto, *, Auto" Padding="0">
+        <!-- Top bar with gradient background -->
+        <Border Grid.Row="0" 
+               StrokeShape="Rectangle" 
+               Padding="16,12" 
+               BackgroundColor="#F5F5F5"
+               Margin="0,0,0,8">
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="0,2" Radius="4" Opacity="0.1" />
+            </Border.Shadow>
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" VerticalOptions="Center">
+                <Button Grid.Column="0" 
+                        Text="📁 File" 
+                        Clicked="OnFileClicked" 
+                        VerticalOptions="Center"
+                        BackgroundColor="#512BD4"
+                        TextColor="White"
+                        CornerRadius="8"
+                        Padding="12,8" />
 
-        <!-- Top bar: File button, checkbox+label, spacer, Notes button -->
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*,Auto" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
-            <Button Grid.Column="0" Text="File" Clicked="OnFileClicked" VerticalOptions="Center" />
+                <HorizontalStackLayout Grid.Column="1" 
+                                        Spacing="8" 
+                                        VerticalOptions="Center"
+                                        Margin="16,0,0,0">
+                    <CheckBox
+                        x:Name="PreviewCheckBox"
+                        CheckedChanged="OnPreviewCheckChanged"
+                        VerticalOptions="Center" />
+                    <Label
+                        Text="Preview"
+                        VerticalOptions="Center"
+                        FontSize="14"
+                        TextColor="#333" />
+                </HorizontalStackLayout>
 
-            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
-                <CheckBox
-                    x:Name="PreviewCheckBox"
-                    CheckedChanged="OnPreviewCheckChanged"
-                    VerticalOptions="Center" />
-                <Label
-                    Text="Preview mode"
-                    VerticalOptions="Center"
-                    Margin="0,0,0,0" />
-            </HorizontalStackLayout>
+                <HorizontalStackLayout Grid.Column="3" 
+                                        Spacing="8" 
+                                        VerticalOptions="Center">
+                    <Button Text="📝 Notes" 
+                            Clicked="OnOpenNotesClicked" 
+                            VerticalOptions="Center"
+                            BackgroundColor="#DFD8F7"
+                            TextColor="#512BD4"
+                            CornerRadius="8"
+                            Padding="12,8" />
+                    <Button Text="🌤 Weather" 
+                            Clicked="OnOpenWeatherClicked" 
+                            VerticalOptions="Center"
+                            BackgroundColor="#DFD8F7"
+                            TextColor="#512BD4"
+                            CornerRadius="8"
+                            Padding="12,8" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
 
-            <!-- Spacer column is grid column 2 -->
+        <!-- Editor/Preview area -->
+        <Grid Grid.Row="1" Padding="16,0">
+            <Editor
+                x:Name="MarkdownEditor"
+                TextChanged="OnMarkdownTextChanged"
+                FontSize="16"
+                Placeholder="Start typing your Markdown here..."
+                PlaceholderColor="#999"
+                BackgroundColor="White"
+                Margin="0,0,0,0" />
 
-            <Button Grid.Column="3" Text="Notes" Clicked="OnOpenNotesClicked" VerticalOptions="Center" />
+            <WebView
+                x:Name="MarkdownPreview"
+                IsVisible="False"
+                BackgroundColor="White" />
         </Grid>
 
-        <Editor
-            x:Name="MarkdownEditor"
-            Grid.Row="1"
-            TextChanged="OnMarkdownTextChanged"
-            FontSize="16"
-            AutoSize="TextChanges"
-            />
-
-        <WebView
-            x:Name="MarkdownPreview"
-            Grid.Row="1"
-            IsVisible="False"
-            HeightRequest="900" />
-
-        <Button
-            Text="Save"
-            Grid.Row="2"
-            HeightRequest="45"
-            HorizontalOptions="End"
-            Clicked="OnSaveClicked" />
-
+        <!-- Bottom bar with save button -->
+        <Border Grid.Row="2" 
+               StrokeShape="Rectangle" 
+               Padding="16,12" 
+               BackgroundColor="#F5F5F5"
+               Margin="0,8,0,0">
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="0,-2" Radius="4" Opacity="0.1" />
+            </Border.Shadow>
+            <Grid>
+                <Button
+                    Text="💾 Save"
+                    HeightRequest="48"
+                    HorizontalOptions="End"
+                    BackgroundColor="#512BD4"
+                    TextColor="White"
+                    CornerRadius="10"
+                    Padding="24,0"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    Clicked="OnSaveClicked" />
+            </Grid>
+        </Border>
     </Grid>
 </ContentPage>
