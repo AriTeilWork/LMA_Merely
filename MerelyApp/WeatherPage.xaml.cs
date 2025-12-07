@@ -75,21 +75,32 @@ public partial class WeatherPage : ContentPage
                 lat = 55.7558; lon = 37.6173;
             }
         }
-        catch
+        catch (Exception ex)
         {
             LocationLabel.Text = "📍 Using default location (Moscow)";
             lat = 55.7558; lon = 37.6173;
+            System.Diagnostics.Debug.WriteLine($"Location error: {ex.Message}");
         }
 
         LoadingIndicator.IsVisible = true;
         LoadingIndicator.IsRunning = true;
-        var data = await _openMeteo.GetForecastAsync(lat, lon, days: 16);
+        
+        OpenMeteoForecast? data = null;
+        try
+        {
+            data = await _openMeteo.GetForecastAsync(lat, lon, days: 16);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Weather service error: {ex.Message}");
+        }
+        
         if (data == null)
         {
             LoadingIndicator.IsRunning = false;
             LoadingIndicator.IsVisible = false;
             _isLoading = false;
-            await DisplayAlert("Error", "Failed to get weather data from OpenMeteo.", "OK");
+            await DisplayAlert("Error", "Failed to get weather data. Please check your internet connection and try again.", "OK");
             return;
         }
 
@@ -141,7 +152,7 @@ public partial class WeatherPage : ContentPage
         }
 
         var daysCount = data.Time?.Length ?? 0;
-        var items = Enumerable.Range(0, daysCount).Select(i => new ForecastItem
+        var items = Enumerable.Range(0, daysCount).Select(i => new Models.ForecastItem
         {
             DayOfWeek = (data.Time != null && i < data.Time.Length && DateTime.TryParse(data.Time[i], out var date)) 
                 ? date.ToString("ddd", CultureInfo.CurrentCulture) 
@@ -306,14 +317,5 @@ public partial class WeatherPage : ContentPage
     private async void OnRefreshClicked(object sender, EventArgs e)
     {
         await LoadWeatherAsync();
-    }
-
-    private class ForecastItem
-    {
-        public string? DayOfWeek { get; set; }
-        public string? Summary { get; set; }
-        public string? TempRange { get; set; }
-        public string? IconUrl { get; set; }
-        public string? IconEmoji { get; set; }
     }
 }

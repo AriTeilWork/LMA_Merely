@@ -14,7 +14,8 @@
       android:icon="@mipmap/appicon"
       android:roundIcon="@mipmap/appicon_round"
       android:theme="@style/Maui.SplashTheme"
-      android:supportsRtl="true">
+      android:supportsRtl="true"
+      android:usesCleartextTraffic="true">
 
     <!-- MainActivity is provided by MAUI and merged into the manifest at build time. Do not declare it here. -->
 

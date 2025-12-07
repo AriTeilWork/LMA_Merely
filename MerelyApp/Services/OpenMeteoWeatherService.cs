@@ -10,7 +10,10 @@ namespace MerelyApp.Services;
 
 public class OpenMeteoWeatherService
 {
-    private static readonly HttpClient _http = new HttpClient();
+    private static readonly HttpClient _http = new HttpClient()
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
 
     public async Task<OpenMeteoForecast?> GetForecastAsync(double latitude, double longitude, int days = 7)
     {
@@ -19,6 +22,7 @@ public class OpenMeteoWeatherService
             int cnt = Math.Min(days, 16);
             string fields = "temperature_2m_max,temperature_2m_min,weather_code,wind_speed_10m_max,relative_humidity_2m_max,relative_humidity_2m_min,sunrise,sunset";
             string url = $"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily={fields}&forecast_days={cnt}&timezone=auto&current_weather=true&hourly=is_day";
+            
             var resp = await _http.GetAsync(url);
             if (!resp.IsSuccessStatusCode) return null;
             var json = await resp.Content.ReadAsStringAsync();
@@ -151,8 +155,19 @@ public class OpenMeteoWeatherService
                 doc?.Dispose();
             }
         }
-        catch
+        catch (System.Net.Http.HttpRequestException)
         {
+            // Network error - return null to indicate failure
+            return null;
+        }
+        catch (System.Threading.Tasks.TaskCanceledException)
+        {
+            // Timeout - return null to indicate failure
+            return null;
+        }
+        catch (Exception)
+        {
+            // Other errors - return null to indicate failure
             return null;
         }
     }
