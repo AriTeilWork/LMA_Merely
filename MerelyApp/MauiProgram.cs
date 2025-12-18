@@ -1,6 +1,9 @@
 ﻿using Microsoft.Maui;
 using Microsoft.Maui.Hosting;
 using SQLitePCL;
+using System;
+using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 
 namespace MerelyApp;
 
@@ -16,22 +19,81 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
             });
 
-        // Ensure SQLite native libraries are initialized on Android
-        try
+        // Global exception handlers
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {
-            // Use Batteries_V2 when available (bundle_green) for better native support
             try
             {
-                SQLitePCL.Batteries_V2.Init();
+                if (e.ExceptionObject is Exception ex)
+                    AppLogger.Log(ex, "UnhandledException");
+                else
+                    AppLogger.Log($"Unhandled exception object: {e.ExceptionObject}");
+            }
+            catch { }
+        };
+
+        TaskScheduler.UnobservedTaskException += (s, e) =>
+        {
+            try
+            {
+                AppLogger.Log(e.Exception, "UnobservedTaskException");
+                e.SetObserved();
+            }
+            catch { }
+        };
+
+        // Initialize SQLite native provider early for all platforms.
+        try
+        {
+            // Initialize batteries (will load provider assembly based on referenced bundle)
+            SQLitePCL.Batteries_V2.Init();
+
+            // Some provider types are added only by platform-specific provider packages
+            // and may not be available at compile time. Try to locate a provider type
+            // at runtime (winsqlite3, e_sqlite3, or sqlite3) and set it via reflection.
+            try
+            {
+                Type? providerType = null;
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    providerType = asm.GetType("SQLitePCL.SQLite3Provider_winsqlite3")
+                                ?? asm.GetType("SQLitePCL.SQLite3Provider_e_sqlite3")
+                                ?? asm.GetType("SQLitePCL.SQLite3Provider_sqlite3");
+                    if (providerType != null) break;
+                }
+
+                if (providerType != null)
+                {
+                    var provider = Activator.CreateInstance(providerType);
+                    if (provider != null)
+                    {
+                        try
+                        {
+                            // Use dynamic to avoid needing compile-time type references
+                            SQLitePCL.raw.SetProvider((dynamic)provider);
+                        }
+                        catch
+                        {
+                            // ignore if provider already set or fails
+                        }
+                    }
+                }
             }
             catch
             {
-                SQLitePCL.Batteries.Init();
+                // ignore provider reflection failures
             }
         }
         catch
         {
-            // ignore if initialization not necessary
+            try
+            {
+                SQLitePCL.Batteries.Init();
+            }
+            catch
+            {
+                // ignore fallback failures
+            }
         }
 
         return builder.Build();
