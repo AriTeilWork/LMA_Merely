@@ -56,8 +56,9 @@ public partial class MainPage : ContentPage
                 File.WriteAllText(filePath, MarkdownEditor.Text ?? string.Empty);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            AppLogger.Log(ex, $"MainPage ctor load file={filePath}");
             // ignore load errors
         }
     }
@@ -105,12 +106,16 @@ public partial class MainPage : ContentPage
                     await GetDatabase().SaveNoteAsync(note);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.Log(ex, "OnSaveClicked Save DB record");
+            }
 
             await DisplayAlert("Saved", $"Markdown saved to:\n{path}", "OK");
         }
         catch (Exception ex)
         {
+            AppLogger.Log(ex, "OnSaveClicked Write file");
             await DisplayAlert("Error", ex.Message, "OK");
         }
     }
@@ -163,12 +168,16 @@ public partial class MainPage : ContentPage
                     await GetDatabase().SaveNoteAsync(existing);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.Log(ex, "RenameCurrentFile Update DB");
+            }
 
             await DisplayAlert("Renamed", $"File renamed to:\n{newPath}", "OK");
         }
         catch (Exception ex)
         {
+            AppLogger.Log(ex, "RenameCurrentFile Move file");
             await DisplayAlert("Error", ex.Message, "OK");
         }
     }
@@ -215,12 +224,16 @@ public partial class MainPage : ContentPage
                 var note = new Note { Title = Path.GetFileNameWithoutExtension(newPath), FilePath = newPath, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
                 await GetDatabase().SaveNoteAsync(note);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.Log(ex, "SaveAs Save DB");
+            }
 
             await DisplayAlert("Saved", $"File saved to:\n{newPath}", "OK");
         }
         catch (Exception ex)
         {
+            AppLogger.Log(ex, "SaveAs Write file");
             await DisplayAlert("Error", ex.Message, "OK");
         }
     }
@@ -257,17 +270,17 @@ public partial class MainPage : ContentPage
                         result = folder.Path;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // ignore platform picker errors
+                    AppLogger.Log(ex, "PickFolderWindowsAsync Picker");
                 }
             });
 
             return result;
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            AppLogger.Log(ex, "PickFolderWindowsAsync Outer");
         }
 
         return null;
@@ -310,6 +323,7 @@ public partial class MainPage : ContentPage
         }
         catch (Exception ex)
         {
+            AppLogger.Log(ex, "OpenAs FilePicker");
             await DisplayAlert("Error", ex.Message, "OK");
         }
     }

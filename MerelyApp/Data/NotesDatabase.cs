@@ -4,6 +4,9 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using SQLite;
+using System;
+using System.Diagnostics;
+using MerelyApp;
 
 namespace MerelyApp.Data;
 
@@ -17,7 +20,15 @@ public class NotesDatabase
     public NotesDatabase(string dbPath)
     {
         _dbPath = dbPath;
-        _database = new SQLiteAsyncConnection(dbPath);
+        try
+        {
+            _database = new SQLiteAsyncConnection(dbPath);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Log(ex, $"NotesDatabase ctor dbPath={dbPath}");
+            throw;
+        }
     }
 
     private async Task EnsureInitializedAsync()
@@ -42,29 +53,61 @@ public class NotesDatabase
     public async Task<List<Note>> GetNotesAsync()
     {
         await EnsureInitializedAsync();
-        return await _database.Table<Note>().OrderByDescending(n => n.UpdatedAt).ToListAsync();
+        try
+        {
+            return await _database.Table<Note>().OrderByDescending(n => n.UpdatedAt).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Log(ex, "GetNotesAsync");
+            throw;
+        }
     }
 
     public async Task<Note> GetNoteAsync(int id)
     {
         await EnsureInitializedAsync();
-        return await _database.Table<Note>().Where(n => n.Id == id).FirstOrDefaultAsync();
+        try
+        {
+            return await _database.Table<Note>().Where(n => n.Id == id).FirstOrDefaultAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Log(ex, $"GetNoteAsync id={id}");
+            throw;
+        }
     }
 
     public async Task<int> SaveNoteAsync(Note note)
     {
         await EnsureInitializedAsync();
         note.UpdatedAt = DateTime.UtcNow;
-        if (note.Id != 0)
-            return await _database.UpdateAsync(note);
-        else
-            return await _database.InsertAsync(note);
+        try
+        {
+            if (note.Id != 0)
+                return await _database.UpdateAsync(note);
+            else
+                return await _database.InsertAsync(note);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Log(ex, $"SaveNoteAsync id={note?.Id}");
+            throw;
+        }
     }
 
     public async Task<int> DeleteNoteAsync(Note note)
     {
         await EnsureInitializedAsync();
-        return await _database.DeleteAsync(note);
+        try
+        {
+            return await _database.DeleteAsync(note);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Log(ex, $"DeleteNoteAsync id={note?.Id}");
+            throw;
+        }
     }
 
     public static string GetDefaultDbPath()
