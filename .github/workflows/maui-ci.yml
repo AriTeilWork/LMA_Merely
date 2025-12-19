@@ -36,4 +36,4 @@ jobs:
         run: dotnet restore MerelyApp/MerelyApp.csproj /p:TargetFramework=net9.0-windows10.0.19041.0 /p:RuntimeIdentifier=win10-x64
 
       - name: Build Windows
-        run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-windows10.0.19041.0 --no-restore
+        run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-windows10.0.19041.0 -r win10-x64 --no-restore
