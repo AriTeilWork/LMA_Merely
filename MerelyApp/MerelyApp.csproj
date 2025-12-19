@@ -19,6 +19,8 @@
 		<SingleProject>true</SingleProject>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<!-- Disable static web assets targets that may be pulled in by optional packages -->
+		<StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
 
 		<!-- Display name -->
 		<ApplicationTitle>MerelyApp</ApplicationTitle>
@@ -89,9 +91,19 @@
 	  <MauiXaml Update="NotesBoardPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Pages\BlazorHostPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="WeatherPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	</ItemGroup>
+
+  <!-- Workaround: define empty static web assets targets to satisfy packages that import WebView Blazor targets
+       These targets are normally provided by the Web SDK; MAUI projects don't include them. Defining no-op
+       targets prevents MSBuild errors when a referenced package depends on them. -->
+  <Target Name="StaticWebAssetsPrepareForRun" />
+  <Target Name="StaticWebAssetsPrepareForPublish" />
+  <Target Name="LoadStaticWebAssetsPublishManifest" />
 
 </Project>
