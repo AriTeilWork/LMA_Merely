@@ -3,11 +3,11 @@ using Microsoft.Maui.Storage;
 using Markdig;
 using System;
 using System.IO;
-using System.Threading.Tasks;
 using System.Linq;
+using System.Threading.Tasks;
 using MerelyApp.Data;
+using Microsoft.Maui; 
 
-using Microsoft.Maui.ApplicationModel;
 
 #if WINDOWS
 using WinRT.Interop;
@@ -26,7 +26,8 @@ public partial class MainPage : ContentPage
     {
         if (_db == null)
         {
-            _db = new NotesDatabase(NotesDatabase.GetDefaultDbPath());
+            var svc = Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services?.GetService(typeof(NotesDatabase)) as NotesDatabase;
+            _db = svc ?? new NotesDatabase(NotesDatabase.GetDefaultDbPath());
         }
         return _db;
     }
@@ -35,11 +36,9 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         MarkdownEditor.Text = "# Hello Markdown 👋\nType **Markdown** here!";
-
         MarkdownPreview.Navigating += OnWebViewNavigating;
     }
 
-    // New constructor to open a specific note file
     public MainPage(string filePath) : this()
     {
         _currentFilePath = filePath;
@@ -47,28 +46,77 @@ public partial class MainPage : ContentPage
         try
         {
             if (File.Exists(filePath))
-            {
                 MarkdownEditor.Text = File.ReadAllText(filePath);
-            }
             else
-            {
-                // create empty file if it doesn't exist
                 File.WriteAllText(filePath, MarkdownEditor.Text ?? string.Empty);
-            }
         }
-        catch (Exception ex)
-        {
-            AppLogger.Log(ex, $"MainPage ctor load file={filePath}");
-            // ignore load errors
-        }
+        catch { /* ignore load errors */ }
     }
+
+
+
+    #region Formatting buttons
+
+    private void OnBoldClicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyBold(MarkdownEditor);
+
+    private void OnItalicClicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyItalic(MarkdownEditor);
+
+    private void OnHeadingClicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyHeading(MarkdownEditor);
+
+    private void OnBulletClicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyBullet(MarkdownEditor);
+
+    private void OnCodeClicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyInlineCode(MarkdownEditor);
+
+    private void OnH1Clicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyHeadingLevel(MarkdownEditor, 1);
+    private void OnH2Clicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyHeadingLevel(MarkdownEditor, 2);
+    private void OnH3Clicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyHeadingLevel(MarkdownEditor, 3);
+    private void OnH4Clicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyHeadingLevel(MarkdownEditor, 4);
+    private void OnH5Clicked(object sender, EventArgs e) =>
+        Utils.EditorFormatting.ApplyHeadingLevel(MarkdownEditor, 5);
+
+    private async void OnLinkClicked(object sender, EventArgs e)
+    {
+        string defaultText = string.Empty;
+        int selStart = Math.Max(0, MarkdownEditor.CursorPosition);
+        int selLen = Math.Max(0, MarkdownEditor.SelectionLength);
+
+        if (selLen > 0 && selStart + selLen <= (MarkdownEditor.Text ?? string.Empty).Length)
+            defaultText = (MarkdownEditor.Text ?? string.Empty).Substring(selStart, selLen);
+
+        var linkText = await DisplayPromptAsync("Link text", "Text to display (leave empty to use URL):", initialValue: defaultText);
+        if (linkText == null) return;
+
+        var linkUrl = await DisplayPromptAsync("Link URL", "Enter URL (https://...):", initialValue: "https://");
+        if (linkUrl == null) return;
+
+        linkUrl = linkUrl.Trim();
+        if (string.IsNullOrWhiteSpace(linkUrl)) return;
+
+        var inserted = Utils.EditorFormatting.InsertLink(MarkdownEditor, linkText ?? string.Empty, linkUrl);
+        if (!inserted)
+            await DisplayAlert("Invalid URL", "Please enter a valid http(s) URL.", "OK");
+
+        if (PreviewCheckBox.IsChecked)
+            UpdatePreview();
+    }
+
+    #endregion
+
+    #region Preview
 
     private void OnMarkdownTextChanged(object sender, TextChangedEventArgs e)
     {
-        if (!PreviewCheckBox.IsChecked) return;
-
-        string html = Markdown.ToHtml(e.NewTextValue ?? string.Empty);
-        MarkdownPreview.Source = new HtmlWebViewSource { Html = html };
+        if (PreviewCheckBox.IsChecked)
+            UpdatePreview();
     }
 
     private void OnPreviewCheckChanged(object sender, CheckedChangedEventArgs e)
@@ -77,45 +125,58 @@ public partial class MainPage : ContentPage
         MarkdownPreview.IsVisible = e.Value;
 
         if (e.Value)
-        {
-            string html = Markdown.ToHtml(MarkdownEditor.Text ?? string.Empty);
-            MarkdownPreview.Source = new HtmlWebViewSource { Html = html };
-        }
+            UpdatePreview();
     }
+
+    private void UpdatePreview()
+    {
+        string html = Markdown.ToHtml(MarkdownEditor.Text ?? string.Empty);
+        MarkdownPreview.Source = new HtmlWebViewSource { Html = html };
+    }
+
+    private void OnEditPreviewClicked(object sender, EventArgs e)
+    {
+        if (PreviewCheckBox.IsChecked)
+            PreviewCheckBox.IsChecked = false;
+
+        MarkdownEditor.Focus();
+    }
+
+    #endregion
+
+    #region File handling
 
     private async void OnSaveClicked(object sender, EventArgs e)
     {
         string markdown = MarkdownEditor.Text ?? string.Empty;
         string path = _currentFilePath ?? Path.Combine(FileSystem.AppDataDirectory, "note.md");
+
         try
         {
             await File.WriteAllTextAsync(path, markdown);
 
-            // Save or update database record
-            try
+            var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == path);
+            if (existing != null)
             {
-                var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == path);
-                if (existing != null)
-                {
-                    existing.UpdatedAt = DateTime.UtcNow;
-                    await GetDatabase().SaveNoteAsync(existing);
-                }
-                else
-                {
-                    var note = new Note { Title = Path.GetFileNameWithoutExtension(path), FilePath = path, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-                    await GetDatabase().SaveNoteAsync(note);
-                }
+                existing.UpdatedAt = DateTime.UtcNow;
+                await GetDatabase().SaveNoteAsync(existing);
             }
-            catch (Exception ex)
+            else
             {
-                AppLogger.Log(ex, "OnSaveClicked Save DB record");
+                var note = new Note
+                {
+                    Title = Path.GetFileNameWithoutExtension(path),
+                    FilePath = path,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await GetDatabase().SaveNoteAsync(note);
             }
 
             await DisplayAlert("Saved", $"Markdown saved to:\n{path}", "OK");
         }
         catch (Exception ex)
         {
-            AppLogger.Log(ex, "OnSaveClicked Write file");
             await DisplayAlert("Error", ex.Message, "OK");
         }
     }
@@ -123,18 +184,9 @@ public partial class MainPage : ContentPage
     private async void OnFileClicked(object sender, EventArgs e)
     {
         string action = await DisplayActionSheet("File", "Cancel", null, "Rename", "Save As", "Open As");
-        if (action == "Rename")
-        {
-            await RenameCurrentFile();
-        }
-        else if (action == "Save As")
-        {
-            await SaveAs();
-        }
-        else if (action == "Open As")
-        {
-            await OpenAs();
-        }
+        if (action == "Rename") await RenameCurrentFile();
+        else if (action == "Save As") await SaveAs();
+        else if (action == "Open As") await OpenAs();
     }
 
     private async Task RenameCurrentFile()
@@ -150,34 +202,26 @@ public partial class MainPage : ContentPage
         if (string.IsNullOrWhiteSpace(newName)) return;
 
         string newPath = Path.Combine(Path.GetDirectoryName(_currentFilePath) ?? FileSystem.AppDataDirectory, newName);
-        string oldPath = _currentFilePath;
+
         try
         {
-            File.Move(oldPath, newPath);
+            File.Move(_currentFilePath, newPath);
+            string oldPath = _currentFilePath;
             _currentFilePath = newPath;
 
-            // Update DB entry file path: find by old path
-            try
+            var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == oldPath);
+            if (existing != null)
             {
-                var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == oldPath);
-                if (existing != null)
-                {
-                    existing.FilePath = newPath;
-                    existing.Title = Path.GetFileNameWithoutExtension(newPath);
-                    existing.UpdatedAt = DateTime.UtcNow;
-                    await GetDatabase().SaveNoteAsync(existing);
-                }
-            }
-            catch (Exception ex)
-            {
-                AppLogger.Log(ex, "RenameCurrentFile Update DB");
+                existing.FilePath = newPath;
+                existing.Title = Path.GetFileNameWithoutExtension(newPath);
+                existing.UpdatedAt = DateTime.UtcNow;
+                await GetDatabase().SaveNoteAsync(existing);
             }
 
             await DisplayAlert("Renamed", $"File renamed to:\n{newPath}", "OK");
         }
         catch (Exception ex)
         {
-            AppLogger.Log(ex, "RenameCurrentFile Move file");
             await DisplayAlert("Error", ex.Message, "OK");
         }
     }
@@ -188,7 +232,6 @@ public partial class MainPage : ContentPage
         string newName = await DisplayPromptAsync("Save As", "File name:", initialValue: defaultName);
         if (string.IsNullOrWhiteSpace(newName)) return;
 
-        // Ask where to save
         string locationChoice = await DisplayActionSheet("Save location", "Cancel", null, "App Storage", "Choose folder");
         if (locationChoice == "Cancel") return;
 
@@ -198,17 +241,10 @@ public partial class MainPage : ContentPage
         {
 #if WINDOWS
             var picked = await PickFolderWindowsAsync();
-            if (!string.IsNullOrEmpty(picked))
-            {
-                targetDir = picked;
-            }
-            else
-            {
-                // user cancelled folder pick
-                await DisplayAlert("Cancelled", "No folder selected. Saving to app storage instead.", "OK");
-            }
+            if (!string.IsNullOrEmpty(picked)) targetDir = picked;
+            else await DisplayAlert("Cancelled", "No folder selected. Saving to app storage instead.", "OK");
 #else
-            await DisplayAlert("Not supported", "Choosing arbitrary folders is only supported on Windows in this build. File will be saved to app storage.", "OK");
+            await DisplayAlert("Not supported", "Choosing folders is only supported on Windows. File will be saved to app storage.", "OK");
 #endif
         }
 
@@ -218,87 +254,30 @@ public partial class MainPage : ContentPage
             await File.WriteAllTextAsync(newPath, MarkdownEditor.Text ?? string.Empty);
             _currentFilePath = newPath;
 
-            // Create DB entry
-            try
+            var note = new Note
             {
-                var note = new Note { Title = Path.GetFileNameWithoutExtension(newPath), FilePath = newPath, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-                await GetDatabase().SaveNoteAsync(note);
-            }
-            catch (Exception ex)
-            {
-                AppLogger.Log(ex, "SaveAs Save DB");
-            }
+                Title = Path.GetFileNameWithoutExtension(newPath),
+                FilePath = newPath,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            await GetDatabase().SaveNoteAsync(note);
 
             await DisplayAlert("Saved", $"File saved to:\n{newPath}", "OK");
         }
         catch (Exception ex)
         {
-            AppLogger.Log(ex, "SaveAs Write file");
             await DisplayAlert("Error", ex.Message, "OK");
         }
     }
-
-#if WINDOWS
-    private async Task<string?> PickFolderWindowsAsync()
-    {
-        try
-        {
-            // Ensure we run picker code on the UI thread to avoid WinRT runtime exceptions
-            string? result = null;
-            await Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(async () =>
-            {
-                try
-                {
-                    var picker = new FolderPicker();
-
-                    // Need to initialize with the current window handle
-                    var mauiWindow = Microsoft.Maui.Controls.Application.Current?.Windows?.FirstOrDefault()?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
-                    if (mauiWindow == null)
-                    {
-                        return;
-                    }
-
-                    var hwnd = WindowNative.GetWindowHandle(mauiWindow);
-                    InitializeWithWindow.Initialize(picker, hwnd);
-
-                    picker.SuggestedStartLocation = PickerLocationId.Desktop;
-                    picker.FileTypeFilter.Add("*");
-
-                    var folder = await picker.PickSingleFolderAsync();
-                    if (folder != null)
-                    {
-                        result = folder.Path;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.Log(ex, "PickFolderWindowsAsync Picker");
-                }
-            });
-
-            return result;
-        }
-        catch (Exception ex)
-        {
-            AppLogger.Log(ex, "PickFolderWindowsAsync Outer");
-        }
-
-        return null;
-    }
-#endif
 
     private async Task OpenAs()
     {
         try
         {
-            var result = await FilePicker.PickAsync(new PickOptions
-            {
-                PickerTitle = "Pick a markdown file"
-            });
-
+            var result = await FilePicker.PickAsync(new PickOptions { PickerTitle = "Pick a markdown file" });
             if (result == null) return;
 
-            // Copy to AppDataDirectory and open
             string dest = Path.Combine(FileSystem.AppDataDirectory, result.FileName);
             using (var stream = await result.OpenReadAsync())
             using (var outStream = File.Create(dest))
@@ -309,37 +288,68 @@ public partial class MainPage : ContentPage
             _currentFilePath = dest;
             MarkdownEditor.Text = await File.ReadAllTextAsync(dest);
 
-            // Create DB entry if missing
-            try
+            var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == dest);
+            if (existing == null)
             {
-                var existing = (await GetDatabase().GetNotesAsync()).FirstOrDefault(n => n.FilePath == dest);
-                if (existing == null)
+                var note = new Note
                 {
-                    var note = new Note { Title = Path.GetFileNameWithoutExtension(dest), FilePath = dest, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-                    await GetDatabase().SaveNoteAsync(note);
-                }
+                    Title = Path.GetFileNameWithoutExtension(dest),
+                    FilePath = dest,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await GetDatabase().SaveNoteAsync(note);
             }
-            catch { }
         }
         catch (Exception ex)
         {
-            AppLogger.Log(ex, "OpenAs FilePicker");
             await DisplayAlert("Error", ex.Message, "OK");
         }
     }
-
-
-    private async void OnWebViewNavigating(object? sender, WebNavigatingEventArgs e)
+    private async void OnMarkdownHelpClicked(object sender, EventArgs e)
     {
-        if (Uri.TryCreate(e.Url, UriKind.Absolute, out Uri uri))
-        {
-            if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-            {
-                e.Cancel = true;
-                await Launcher.OpenAsync(uri);
-            }
-        }
+        string helpText = @"
+            **Markdown Cheatsheet:**
+            - **Bold:** `**text**`
+            - *Italic:* `*text*`
+            - Headings: `# H1`, `## H2`, `### H3`, etc.
+            - Bullet list: `- item`
+            - Inline code: `` `code` ``
+            - Links: `[text](https://example.com)`
+            Use this editor to write Markdown and toggle preview with the checkbox above.
+        ";
+
+        await DisplayAlert("Markdown Help", helpText, "Close");
     }
+
+
+#if WINDOWS
+    private async Task<string?> PickFolderWindowsAsync()
+    {
+        string? result = null;
+        await Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            try
+            {
+                var picker = new FolderPicker();
+                var mauiWindow = Microsoft.Maui.Controls.Application.Current?.Windows?.FirstOrDefault()?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
+                if (mauiWindow == null) return;
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(mauiWindow));
+
+                picker.SuggestedStartLocation = PickerLocationId.Desktop;
+                picker.FileTypeFilter.Add("*");
+                var folder = await picker.PickSingleFolderAsync();
+                if (folder != null) result = folder.Path;
+            }
+            catch { }
+        });
+        return result;
+    }
+#endif
+
+    #endregion
+
+    #region Navigation
 
     private async void OnOpenNotesClicked(object sender, EventArgs e)
     {
@@ -351,4 +361,15 @@ public partial class MainPage : ContentPage
         await Navigation.PushAsync(new WeatherPage());
     }
 
+    private async void OnWebViewNavigating(object? sender, WebNavigatingEventArgs e)
+    {
+        if (Uri.TryCreate(e.Url, UriKind.Absolute, out Uri uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            e.Cancel = true;
+            await Launcher.OpenAsync(uri);
+        }
+    }
+
+    #endregion
 }

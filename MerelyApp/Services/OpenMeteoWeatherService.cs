@@ -15,7 +15,7 @@ public class OpenMeteoWeatherService
         Timeout = TimeSpan.FromSeconds(30)
     };
 
-    public async Task<OpenMeteoForecast?> GetForecastAsync(double latitude, double longitude, int days = 7)
+    public async Task<OpenMeteoForecast?> GetForecastAsync(double latitude, double longitude, int days = 7, System.Threading.CancellationToken cancellationToken = default)
     {
         try
         {
@@ -23,11 +23,17 @@ public class OpenMeteoWeatherService
             string fields = "temperature_2m_max,temperature_2m_min,weather_code,wind_speed_10m_max,relative_humidity_2m_max,relative_humidity_2m_min,sunrise,sunset";
             string url = $"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily={fields}&forecast_days={cnt}&timezone=auto&current_weather=true&hourly=is_day";
             
-            var resp = await _http.GetAsync(url);
+            var resp = await _http.GetAsync(url, cancellationToken);
             if (!resp.IsSuccessStatusCode) return null;
             var json = await resp.Content.ReadAsStringAsync();
-            // save JSON for debugging
-            try { System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "openmeteo_latest.json"), json); } catch {}
+            // save JSON for debugging in DEBUG builds
+#if DEBUG
+            try
+            {
+                System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "openmeteo_latest.json"), json);
+            }
+            catch { }
+#endif
             JsonDocument? doc = null;
             try
             {
