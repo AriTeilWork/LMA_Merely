@@ -32,6 +32,9 @@ jobs:
         run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-android --no-restore
 
       # ---------- WINDOWS ----------
+      - name: Restore Runtime Pack for Windows
+        run: dotnet restore -r win-x64
+
       - name: Restore Windows
         run: dotnet restore MerelyApp/MerelyApp.csproj /p:TargetFramework=net9.0-windows10.0.19041.0 /p:RuntimeIdentifier=win10-x64
 
