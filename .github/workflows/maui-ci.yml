@@ -19,21 +19,19 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      - name: Install MAUI workloads (Android + Windows)
+      - name: Install MAUI workloads
         run: |
           dotnet workload install maui-android
           dotnet workload install maui-windows
 
-      # ---------- ANDROID ----------
-      - name: Restore Android
-        run: dotnet restore MerelyApp/MerelyApp.csproj -f net9.0-android
+      # ---------- RESTORE  ----------
+      - name: Restore
+        run: dotnet restore MerelyApp/MerelyApp.csproj
 
+      # ---------- ANDROID ----------
       - name: Build Android
-        run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-android --no-restore
+        run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-android --no-restore -p:SkipInvalidConfigurations=true
 
       # ---------- WINDOWS ----------
-      - name: Restore Windows
-        run: dotnet restore MerelyApp/MerelyApp.csproj -f net9.0-windows10.0.19041.0
-
       - name: Build Windows
-        run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-windows10.0.19041.0 --no-restore
+        run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-windows10.0.19041.0 --no-restore -p:SkipInvalidConfigurations=true
