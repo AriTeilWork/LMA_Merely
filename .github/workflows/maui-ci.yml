@@ -24,17 +24,16 @@ jobs:
           dotnet workload install maui-android
           dotnet workload install maui-windows
 
-       # ---------- ANDROID ----------
+      # ---------- ANDROID ----------
       - name: Restore Android
         run: dotnet restore MerelyApp/MerelyApp.csproj /p:TargetFramework=net9.0-android
 
       - name: Build Android
         run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-android --no-restore
 
-  # ---------- WINDOWS ----------
+      # ---------- WINDOWS ----------
       - name: Restore Windows
-        run: dotnet restore MerelyApp/MerelyApp.csproj /p:TargetFramework=net9.0-windows10.0.19041.0
+        run: dotnet restore MerelyApp/MerelyApp.csproj /p:TargetFramework=net9.0-windows10.0.19041.0 /p:RuntimeIdentifier=win-x64
 
       - name: Build Windows
         run: dotnet build MerelyApp/MerelyApp.csproj -c Release -f net9.0-windows10.0.19041.0 --no-restore
-
