@@ -4,7 +4,6 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using SQLite;
-using System;
 using System.Diagnostics;
 using MerelyApp;
 
@@ -64,7 +63,7 @@ public class NotesDatabase
         }
     }
 
-    public async Task<Note> GetNoteAsync(int id)
+    public async Task<Note?> GetNoteAsync(int id)
     {
         await EnsureInitializedAsync();
         try

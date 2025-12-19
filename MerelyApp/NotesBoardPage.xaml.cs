@@ -16,7 +16,11 @@ public partial class NotesBoardPage : ContentPage
     {
         if (_db == null)
         {
-            _db = new NotesDatabase(NotesDatabase.GetDefaultDbPath());
+            var svc = Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services?.GetService(typeof(NotesDatabase)) as NotesDatabase;
+            if (svc != null)
+                _db = svc;
+            else
+                _db = new NotesDatabase(NotesDatabase.GetDefaultDbPath());
         }
         return _db;
     }
@@ -106,6 +110,8 @@ public partial class NotesBoardPage : ContentPage
             string newName = await DisplayPromptAsync("Rename", "New file name:", initialValue: Path.GetFileName(note.FilePath));
             if (string.IsNullOrWhiteSpace(newName)) return;
 
+            // sanitize and ensure safe length
+            newName = MerelyApp.Utils.FileNameUtils.EnsureSafeFileName(Path.GetDirectoryName(note.FilePath) ?? FileSystem.AppDataDirectory, newName);
             string newPath = Path.Combine(Path.GetDirectoryName(note.FilePath) ?? FileSystem.AppDataDirectory, newName);
             try
             {

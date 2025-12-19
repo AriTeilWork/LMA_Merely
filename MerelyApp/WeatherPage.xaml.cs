@@ -12,12 +12,14 @@ namespace MerelyApp;
 
 public partial class WeatherPage : ContentPage
 {
-    private readonly OpenMeteoWeatherService _openMeteo = new OpenMeteoWeatherService();
+    private readonly OpenMeteoWeatherService _openMeteo;
     private bool _isLoading = false;
+    private System.Threading.CancellationTokenSource? _cts;
 
     public WeatherPage()
     {
         InitializeComponent();
+        _openMeteo = Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services?.GetService(typeof(OpenMeteoWeatherService)) as OpenMeteoWeatherService ?? new OpenMeteoWeatherService();
     }
 
     protected override void OnAppearing()
@@ -25,11 +27,20 @@ public partial class WeatherPage : ContentPage
         base.OnAppearing();
         if (!_isLoading)
         {
-            _ = LoadWeatherAsync();
+            _cts = new System.Threading.CancellationTokenSource();
+            _ = LoadWeatherAsync(_cts.Token);
         }
     }
 
-    private async Task LoadWeatherAsync()
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        try { _cts?.Cancel(); } catch { }
+        _cts?.Dispose();
+        _cts = null;
+    }
+
+    private async Task LoadWeatherAsync(System.Threading.CancellationToken cancellationToken = default)
     {
         if (_isLoading) return;
         
@@ -88,7 +99,7 @@ public partial class WeatherPage : ContentPage
         OpenMeteoForecast? data = null;
         try
         {
-            data = await _openMeteo.GetForecastAsync(lat, lon, days: 16);
+            data = await _openMeteo.GetForecastAsync(lat, lon, days: 16, cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {

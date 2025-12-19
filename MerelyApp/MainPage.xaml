@@ -6,100 +6,159 @@
     Title="Markdown Editor">
 
     <Grid RowDefinitions="Auto, *, Auto" Padding="0">
-        <!-- Top bar with gradient background -->
-        <Border Grid.Row="0" 
-               StrokeShape="Rectangle" 
-               Padding="16,12" 
-               BackgroundColor="#F5F5F5"
-               Margin="0,0,0,8">
+
+        <!-- Top bar -->
+        <Border Grid.Row="0" StrokeShape="Rectangle" Padding="16,12" BackgroundColor="#F5F5F5" Margin="0,0,0,8">
             <Border.Shadow>
                 <Shadow Brush="Black" Offset="0,2" Radius="4" Opacity="0.1" />
             </Border.Shadow>
+
             <Grid ColumnDefinitions="Auto,Auto,*,Auto" VerticalOptions="Center">
-                <Button Grid.Column="0" 
-                        Text="📁 File" 
-                        Clicked="OnFileClicked" 
+
+                <!-- File button -->
+                <Button Grid.Column="0"
+                        Text="📁 File"
+                        Clicked="OnFileClicked"
                         VerticalOptions="Center"
                         BackgroundColor="#512BD4"
                         TextColor="White"
                         CornerRadius="8"
                         Padding="12,8" />
 
-                <HorizontalStackLayout Grid.Column="1" 
-                                        Spacing="8" 
-                                        VerticalOptions="Center"
-                                        Margin="16,0,0,0">
-                    <CheckBox
-                        x:Name="PreviewCheckBox"
-                        CheckedChanged="OnPreviewCheckChanged"
-                        VerticalOptions="Center" />
-                    <Label
-                        Text="Preview"
-                        VerticalOptions="Center"
-                        FontSize="14"
-                        TextColor="#333" />
+                <!-- Preview checkbox -->
+                <HorizontalStackLayout Grid.Column="1"
+                                       Spacing="8"
+                                       VerticalOptions="Center"
+                                       HorizontalOptions="Start"
+                                       Margin="16,0,0,0">
+                    <CheckBox x:Name="PreviewCheckBox"
+                              CheckedChanged="OnPreviewCheckChanged"
+                              VerticalOptions="Center"
+                              HeightRequest="24"
+                              WidthRequest="24"/>
+                    <Label Text="Preview"
+                           VerticalOptions="Center"
+                           FontSize="14"
+                           TextColor="#333"/>
                 </HorizontalStackLayout>
 
-                <HorizontalStackLayout Grid.Column="3" 
-                                        Spacing="8" 
-                                        VerticalOptions="Center">
-                    <Button Text="📝 Notes" 
-                            Clicked="OnOpenNotesClicked" 
+                <!-- Right-side buttons -->
+                <HorizontalStackLayout Grid.Column="3"
+                                       Spacing="8"
+                                       VerticalOptions="Center">
+                    <Button Text="✏️ Edit"
+                            Clicked="OnEditPreviewClicked"
                             VerticalOptions="Center"
                             BackgroundColor="#DFD8F7"
                             TextColor="#512BD4"
                             CornerRadius="8"
                             Padding="12,8" />
-                    <Button Text="🌤 Weather" 
-                            Clicked="OnOpenWeatherClicked" 
+                    <Button Text="📝 Notes"
+                            Clicked="OnOpenNotesClicked"
+                            VerticalOptions="Center"
+                            BackgroundColor="#DFD8F7"
+                            TextColor="#512BD4"
+                            CornerRadius="8"
+                            Padding="12,8" />
+                    <Button Text="🌤 Weather"
+                            Clicked="OnOpenWeatherClicked"
                             VerticalOptions="Center"
                             BackgroundColor="#DFD8F7"
                             TextColor="#512BD4"
                             CornerRadius="8"
                             Padding="12,8" />
                 </HorizontalStackLayout>
+
             </Grid>
         </Border>
 
-        <!-- Editor/Preview area -->
+        <!-- Editor / Preview area -->
         <Grid Grid.Row="1" Padding="16,0">
-            <Editor
-                x:Name="MarkdownEditor"
-                TextChanged="OnMarkdownTextChanged"
-                FontSize="16"
-                Placeholder="Start typing your Markdown here..."
-                PlaceholderColor="#999"
-                BackgroundColor="White"
-                Margin="0,0,0,0" />
+            <Grid RowDefinitions="Auto,*">
 
-            <WebView
-                x:Name="MarkdownPreview"
-                IsVisible="False"
-                BackgroundColor="White" />
+                <!-- Markdown buttons -->
+                <Grid x:Name="ButtonsGrid"
+                      RowSpacing="4"
+                      ColumnSpacing="4"
+                      Padding="0,0,0,8">
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Row 0 -->
+                    <Button Text="B" Clicked="OnBoldClicked" FontAttributes="Bold" Grid.Row="0" Grid.Column="0"/>
+                    <Button Text="I" Clicked="OnItalicClicked" FontAttributes="Italic" Grid.Row="0" Grid.Column="1"/>
+                    <Button Text="H1" Clicked="OnH1Clicked" Grid.Row="0" Grid.Column="2"/>
+                    <Button Text="H2" Clicked="OnH2Clicked" Grid.Row="0" Grid.Column="3"/>
+                    <Button Text="H3" Clicked="OnH3Clicked" Grid.Row="0" Grid.Column="4"/>
+                    <Button Text="H4" Clicked="OnH4Clicked" Grid.Row="0" Grid.Column="5"/>
+                    <Button Text="H5" Clicked="OnH5Clicked" Grid.Row="0" Grid.Column="6"/>
+
+                    <!-- Row 1 -->
+                    <Button Text="•" Clicked="OnBulletClicked" Grid.Row="1" Grid.Column="0"/>
+                    <Button Text="`" Clicked="OnCodeClicked" Grid.Row="1" Grid.Column="1"/>
+                    <Button Text="Link" Clicked="OnLinkClicked" Grid.Row="1" Grid.Column="2"/>
+                    <Button Text="❓" Clicked="OnMarkdownHelpClicked"
+                            BackgroundColor="#DFD8F7"
+                            TextColor="#512BD4"
+                            CornerRadius="8"
+                            Padding="8,4"
+                            Grid.Row="1" Grid.Column="3"/>
+
+                </Grid>
+
+                <!-- Editor + Preview -->
+                <Grid Grid.Row="1">
+                    <Editor x:Name="MarkdownEditor"
+                            TextChanged="OnMarkdownTextChanged"
+                            FontSize="16"
+                            Placeholder="Start typing your Markdown here..."
+                            PlaceholderColor="#999"
+                            BackgroundColor="White"
+                            Margin="0,0,0,0"/>
+
+                    <WebView x:Name="MarkdownPreview"
+                             IsVisible="False"
+                             BackgroundColor="White"/>
+                </Grid>
+
+            </Grid>
         </Grid>
 
-        <!-- Bottom bar with save button -->
-        <Border Grid.Row="2" 
-               StrokeShape="Rectangle" 
-               Padding="16,12" 
-               BackgroundColor="#F5F5F5"
-               Margin="0,8,0,0">
+        <!-- Bottom bar -->
+        <Border Grid.Row="2"
+                StrokeShape="Rectangle"
+                Padding="16,12"
+                BackgroundColor="#F5F5F5"
+                Margin="0,8,0,0">
             <Border.Shadow>
-                <Shadow Brush="Black" Offset="0,-2" Radius="4" Opacity="0.1" />
+                <Shadow Brush="Black" Offset="0,-2" Radius="4" Opacity="0.1"/>
             </Border.Shadow>
             <Grid>
-                <Button
-                    Text="💾 Save"
-                    HeightRequest="48"
-                    HorizontalOptions="End"
-                    BackgroundColor="#512BD4"
-                    TextColor="White"
-                    CornerRadius="10"
-                    Padding="24,0"
-                    FontSize="16"
-                    FontAttributes="Bold"
-                    Clicked="OnSaveClicked" />
+                <Button Text="💾 Save"
+                        HeightRequest="48"
+                        HorizontalOptions="End"
+                        BackgroundColor="#512BD4"
+                        TextColor="White"
+                        CornerRadius="10"
+                        Padding="24,0"
+                        FontSize="16"
+                        FontAttributes="Bold"
+                        Clicked="OnSaveClicked"/>
             </Grid>
         </Border>
+
     </Grid>
 </ContentPage>

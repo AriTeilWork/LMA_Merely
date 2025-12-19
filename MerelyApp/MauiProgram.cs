@@ -96,6 +96,12 @@ public static class MauiProgram
             }
         }
 
+        // Register app services in DI
+        builder.Services.AddSingleton<MerelyApp.Data.NotesDatabase>(sp => new MerelyApp.Data.NotesDatabase(MerelyApp.Data.NotesDatabase.GetDefaultDbPath()));
+        builder.Services.AddSingleton<MerelyApp.Services.OpenMeteoWeatherService>();
+        builder.Services.AddSingleton<MerelyApp.Services.WeatherService>();
+
         return builder.Build();
     }
 }
+
